@@ -1,0 +1,1248 @@
+<div id="app" data-theme="light">
+<style>
+#app { --page:#F5F6F8; --surface:#FFFFFF; --surfaceAlt:#F0F2F5; --border:#E2E5EA;
+  --text:#12151A; --textSec:#5B6472; --textMuted:#8A93A3;
+  --accent:#0F6E56; --accentBg:#E1F5EE; --accentText:#085041;
+  --danger:#A32D2D; --dangerBg:#FCEBEB; --dangerText:#791F1F;
+  --success:#3B6D11; --successBg:#EAF3DE; --successText:#27500A;
+  --warning:#854F0B; --warningBg:#FAEEDA; --warningText:#633806;
+  background:var(--page); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,sans-serif; font-size:14px;
+}
+#app[data-theme="dark"] { --page:#0F1115; --surface:#171A21; --surfaceAlt:#1E222B; --border:#2A2F3A;
+  --text:#F4F5F7; --textSec:#9AA3B2; --textMuted:#6B7280;
+  --accent:#5DCAA5; --accentBg:#0B2E27; --accentText:#9FE1CB;
+  --danger:#F09595; --dangerBg:#3A1414; --dangerText:#F7C1C1;
+  --success:#97C459; --successBg:#1D2B0E; --successText:#C0DD97;
+  --warning:#EF9F27; --warningBg:#3A2A08; --warningText:#FAC775;
+}
+#app * { box-sizing:border-box; }
+#app button { font-family:inherit; }
+.btn { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:8px; padding:7px 10px; font-size:13px; cursor:pointer; }
+.btn:hover { background:var(--surfaceAlt); }
+.select, .input { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:8px; padding:7px 8px; font-size:13px; min-width:120px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+.flex { display:flex; }
+.row { display:flex; align-items:center; }
+.between { justify-content:space-between; }
+.gap6 { gap:6px; } .gap8 { gap:8px; } .gap10 { gap:10px; } .gap12 { gap:12px; }
+.muted { color:var(--textSec); } .mut2 { color:var(--textMuted); }
+.tabbtn { display:flex; align-items:center; gap:6px; padding:10px 12px; font-size:13px; font-weight:500; color:var(--textSec); border-bottom:2px solid transparent; background:transparent; white-space:nowrap; cursor:pointer; border-top:none; border-left:none; border-right:none; }
+.tabbtn.active { font-weight:600; color:var(--accent); border-bottom:2px solid var(--accent); }
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+.kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; }
+.upload-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:12px; margin-bottom:24px; }
+.dropzone { border:1.5px dashed var(--border); border-radius:10px; padding:16px 10px; text-align:center; cursor:pointer; background:var(--surfaceAlt); }
+.dropzone.drag { border-color:var(--accent); background:var(--accentBg); }
+table.rt { width:100%; border-collapse:collapse; font-size:13px; }
+table.rt th { text-align:right; padding:8px 12px; cursor:pointer; color:var(--textSec); font-weight:500; white-space:nowrap; border-bottom:1px solid var(--border); background:var(--surfaceAlt); }
+table.rt th.left { text-align:left; }
+table.rt td { padding:8px 12px; text-align:right; color:var(--textSec); white-space:nowrap; border-bottom:1px solid var(--border); }
+table.rt td.left { text-align:left; }
+table.rt td.total { color:var(--text); font-weight:600; }
+.filterbar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px; margin-bottom:16px; padding:12px; }
+.filterfield { display:flex; flex-direction:column; gap:4px; }
+.filterfield.grow { flex:1 1 220px; }
+.filterfield label { font-size:11px; color:var(--textMuted); }
+.warn-box { display:flex; gap:4px; margin-top:4px; border-radius:6px; padding:4px 6px; font-size:12px; }
+.chartbar-wrap { display:flex; align-items:flex-end; gap:6px; height:140px; }
+.chartbar-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+.chartbar { width:70%; border-radius:3px 3px 0 0; }
+@media print { .no-print { display:none !important; } }
+::-webkit-scrollbar { height:8px; width:8px; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+</style>
+
+<div id="header" class="no-print" style="position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--border);">
+  <div class="flex row between" style="padding:12px 16px;">
+    <div class="flex row gap8">
+      <span style="font-size:20px;">&#128203;</span>
+      <div>
+        <div style="font-weight:600; font-size:15px;">Daily TL Report Generator</div>
+        <div style="font-size:11px;" class="muted">Mapping &middot; Payment verification &middot; Row data, generated automatically</div>
+      </div>
+    </div>
+    <div class="flex row gap8">
+      <button class="btn" id="resetBtn" title="Reset dashboard to default state">&#8635; Reset Dashboard</button>
+      <button class="btn" id="printBtn" title="Print current report">&#128438; Print</button>
+      <button class="btn" id="themeBtn" title="Toggle theme">&#9788; Theme</button>
+    </div>
+  </div>
+  <div class="flex" id="tabsRow" style="padding:0 16px; overflow-x:auto; border-top:1px solid var(--border);"></div>
+</div>
+
+<div id="content" style="max-width:1200px; margin:0 auto; padding:16px;"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const SBO_KEYS = ["Breach","Pending","No Breach","Sent Back"];
+
+function monthFromDate(iso) {
+  if (!iso) return null;
+  const m = parseInt(iso.slice(5, 7), 10);
+  if (!m || m < 1 || m > 12) return null;
+  return MONTHS[m - 1];
+}
+
+function normHeader(h) {
+  return String(h || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function findColumn(headers, mustIncludeAny) {
+  const normed = headers.map(h => ({ raw: h, n: normHeader(h) }));
+  for (const candidates of mustIncludeAny) {
+    const hit = normed.find(h => candidates.every(c => h.n.includes(c)));
+    if (hit) return hit.raw;
+  }
+  return null;
+}
+
+function excelSerialToISO(v) {
+  if (v instanceof Date) {
+    const y = v.getFullYear(), m = String(v.getMonth() + 1).padStart(2, "0"), d = String(v.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof v === "number") {
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    const y = d.getUTCFullYear(), m = String(d.getUTCMonth() + 1).padStart(2, "0"), dd = String(d.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  }
+  if (typeof v === "string") {
+    const s = v.trim();
+    let mm = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (mm) return `${mm[3]}-${mm[2].padStart(2,"0")}-${mm[1].padStart(2,"0")}`;
+    mm = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (mm) return `${mm[1]}-${mm[2].padStart(2,"0")}-${mm[3].padStart(2,"0")}`;
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear(), m = String(parsed.getMonth() + 1).padStart(2, "0"), d = String(parsed.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+  }
+  return null;
+}
+
+function readWorkbook(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: "array", cellDates: true });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+        resolve({ rows, sheetName });
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function processMappingRows(rawRows) {
+  if (!rawRows.length) return { data: [], error: "The file has no rows." };
+  const headers = Object.keys(rawRows[0]);
+  const locCol = findColumn(headers, [["location"]]);
+  const tlCol = findColumn(headers, [["tlsname"], ["tlname"], ["teamlead"], ["tl"]]);
+  const dealCol = findColumn(headers, [["dealership"], ["dealer"]]);
+  if (!locCol || !tlCol) {
+    return { data: [], error: `Missing required columns. Found headers: ${headers.slice(0, 8).join(", ")}${headers.length > 8 ? "..." : ""}. Need a Location column and a TL Name column.` };
+  }
+  const byLocation = new Map();
+  let blanks = 0;
+  for (const r of rawRows) {
+    const loc = r[locCol] != null ? String(r[locCol]).trim() : "";
+    const tl = r[tlCol] != null ? String(r[tlCol]).trim() : "";
+    if (!loc && !tl) continue;
+    if (!loc || !tl) { blanks++; continue; }
+    const key = loc.toLowerCase();
+    if (!byLocation.has(key)) byLocation.set(key, { loc, dealership: dealCol ? String(r[dealCol] ?? "").trim() : "", tls: new Set() });
+    byLocation.get(key).tls.add(tl);
+  }
+  const conflicts = Array.from(byLocation.values()).filter(v => v.tls.size > 1);
+  if (conflicts.length) {
+    const preview = conflicts.slice(0, 5).map(c => `"${c.loc}" -> ${Array.from(c.tls).join(" / ")}`).join("; ");
+    const more = conflicts.length > 5 ? `, and ${conflicts.length - 5} more location(s)` : "";
+    return { data: [], error: `Duplicate locations found, each mapped to more than one TL: ${preview}${more}. Each Location must map to exactly one TL — fix the file and re-upload.` };
+  }
+  const data = Array.from(byLocation.values()).map(v => ({ dealership: v.dealership, tl: Array.from(v.tls)[0], location: v.loc }));
+  const warnings = [];
+  if (blanks) warnings.push(`${blanks} row(s) skipped for missing Location or TL Name.`);
+  return { data, error: null, warnings };
+}
+
+function buildMappingDict(mappingRows) {
+  const dict = new Map();
+  for (const m of mappingRows) dict.set(m.location.trim().toLowerCase(), m.tl);
+  return dict;
+}
+
+function normalizePaymentStatus(v) {
+  const s = v == null ? "" : String(v).trim().toLowerCase();
+  if (s === "yes") return "Yes";
+  if (s === "no") return "No";
+  return null;
+}
+
+function processPaymentRows(rawRows, mappingDict) {
+  if (!rawRows.length) return { data: [], error: "The file has no rows." };
+  const headers = Object.keys(rawRows[0]);
+  const locCol = findColumn(headers, [["location"]]);
+  const statusCol = findColumn(headers, [["verificationstatus"], ["paymentstatus"], ["paymentverification"], ["status"]]);
+  const tlCol = findColumn(headers, [["tlsname"], ["tlname"]]);
+  if (!locCol && !tlCol) {
+    return { data: [], error: `Missing a Location or TL Name column. Found headers: ${headers.slice(0, 8).join(", ")}${headers.length > 8 ? "..." : ""}.` };
+  }
+  if (!statusCol) {
+    return { data: [], error: `Could not find a Payment Verification Status column. Found headers: ${headers.slice(0, 8).join(", ")}${headers.length > 8 ? "..." : ""}.` };
+  }
+  const data = [];
+  let unknownLoc = 0, invalidStatus = 0;
+  for (const r of rawRows) {
+    const loc = locCol ? String(r[locCol] ?? "").trim() : "";
+    let tl = tlCol ? String(r[tlCol] ?? "").trim() : "";
+    const statusRaw = r[statusCol];
+    const statusEmpty = statusRaw == null || String(statusRaw).trim() === "";
+    if (!tl && !loc && statusEmpty) continue;
+    if (!tl && loc) {
+      tl = mappingDict.get(loc.toLowerCase()) || "";
+      if (!tl) unknownLoc++;
+    }
+    const status = normalizePaymentStatus(statusRaw);
+    if (!status) { invalidStatus++; continue; }
+    data.push({ tl: tl || "Unknown TL", loc, status });
+  }
+  const warnings = [];
+  if (unknownLoc) warnings.push(`${unknownLoc} row(s) had a location not found in the mapping file and were grouped under "Unknown TL".`);
+  if (invalidStatus) warnings.push(`${invalidStatus} record(s) were ignored because Payment Verification Status was blank or not Yes/No.`);
+  return { data, error: null, warnings };
+}
+
+function processRowDataRows(rawRows, mappingDict) {
+  if (!rawRows.length) return { data: [], error: "The file has no rows." };
+  const headers = Object.keys(rawRows[0]);
+  const locCol = findColumn(headers, [["location"]]);
+  const tlCol = findColumn(headers, [["tlname"]]);
+  const dateCol = findColumn(headers, [["deliverydate"]]);
+  const sboCol = findColumn(headers, [["sentbackoptions"], ["sentback"]]);
+  const bnCol = findColumn(headers, [["bookingnumber"], ["bookingno"]]);
+  const statusCol = findColumn(headers, [["dealstatus"]]);
+  if (!locCol) {
+    return { data: [], error: `Could not find a Location column. Found headers: ${headers.slice(0, 8).join(", ")}${headers.length > 8 ? "..." : ""}.` };
+  }
+  const data = [];
+  let unknownLoc = 0, invalidDates = 0, duplicateBn = 0;
+  const bnSeen = new Set();
+  for (const r of rawRows) {
+    const loc = String(r[locCol] ?? "").trim();
+    let tl = tlCol ? String(r[tlCol] ?? "").trim() : "";
+    if (!tl) tl = mappingDict.get(loc.toLowerCase()) || "";
+    if (!tl && loc) unknownLoc++;
+    const rawDate = dateCol ? r[dateCol] : null;
+    const iso = rawDate != null ? excelSerialToISO(rawDate) : null;
+    if (dateCol && rawDate != null && !iso) invalidDates++;
+    if (!loc && !tl && !iso) continue;
+    const bn = bnCol && r[bnCol] != null ? String(r[bnCol]).trim() : "";
+    let isDuplicateBn = false;
+    if (bn) {
+      if (bnSeen.has(bn)) { duplicateBn++; isDuplicateBn = true; }
+      else bnSeen.add(bn);
+    }
+    data.push({
+      tl: tl || "Unknown TL",
+      loc,
+      date: iso,
+      sbo: sboCol ? (r[sboCol] != null ? String(r[sboCol]).trim() : null) : null,
+      bn: bn || null,
+      status: statusCol ? String(r[statusCol] ?? "") : null,
+      isDuplicateBn,
+    });
+  }
+  const warnings = [];
+  if (unknownLoc) warnings.push(`${unknownLoc} row(s) had a location not found in the mapping file and were grouped under "Unknown Location".`);
+  if (invalidDates) warnings.push(`${invalidDates} row(s) had an unreadable Delivery Date and were excluded from monthly counts.`);
+  if (duplicateBn) warnings.push(`${duplicateBn} record(s) repeat a Booking/Order ID already seen in this file. Use the Records toggle on the Dashboard to count all records or unique Booking IDs only.`);
+  return { data, error: null, warnings };
+}
+
+function dedupeByBookingId(rows) {
+  const seen = new Set();
+  const out = [];
+  for (const r of rows) {
+    if (r.bn) {
+      if (seen.has(r.bn)) continue;
+      seen.add(r.bn);
+    }
+    out.push(r);
+  }
+  return out;
+}
+
+function aggregatePayment(paymentData, tlFilter, locFilter, statusFilter, search, allTLs) {
+  const map = new Map();
+  for (const r of paymentData) {
+    if (tlFilter && r.tl !== tlFilter) continue;
+    if (locFilter && r.loc !== locFilter) continue;
+    if (statusFilter && r.status !== statusFilter) continue;
+    if (search && !(`${r.tl} ${r.loc} ${r.status}`.toLowerCase().includes(search.toLowerCase()))) continue;
+    if (!map.has(r.tl)) map.set(r.tl, { tl: r.tl, yes: 0, no: 0, total: 0 });
+    const row = map.get(r.tl);
+    const s = (r.status || "").toLowerCase();
+    if (s === "yes") row.yes++;
+    else if (s === "no") row.no++;
+    row.total++;
+  }
+  if (allTLs && !locFilter && !search) {
+    for (const tl of allTLs) {
+      if (tlFilter && tl !== tlFilter) continue;
+      if (!map.has(tl)) map.set(tl, { tl, yes: 0, no: 0, total: 0 });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total || a.tl.localeCompare(b.tl));
+}
+
+function aggregateUnknownLocations(paymentData, tlFilter, locFilter, statusFilter, search) {
+  if (tlFilter && tlFilter !== "Unknown TL") return [];
+  const map = new Map();
+  for (const r of paymentData) {
+    if (r.tl !== "Unknown TL") continue;
+    if (locFilter && r.loc !== locFilter) continue;
+    if (statusFilter && r.status !== statusFilter) continue;
+    if (search && !(`${r.loc} ${r.status}`.toLowerCase().includes(search.toLowerCase()))) continue;
+    const key = r.loc || "(blank)";
+    if (!map.has(key)) map.set(key, { loc: key, yes: 0, no: 0, total: 0 });
+    const row = map.get(key);
+    const s = (r.status || "").toLowerCase();
+    if (s === "yes") row.yes++;
+    else if (s === "no") row.no++;
+    row.total++;
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
+}
+
+function aggregateMonthly(rowData, monthFilter, tlFilter, locFilter, search) {
+  const map = new Map();
+  for (const r of rowData) {
+    if (tlFilter && r.tl !== tlFilter) continue;
+    if (locFilter && r.loc !== locFilter) continue;
+    if (search && !(`${r.tl} ${r.loc} ${r.bn || ""}`.toLowerCase().includes(search.toLowerCase()))) continue;
+    const m = monthFromDate(r.date);
+    if (!m) continue;
+    if (monthFilter && m !== monthFilter) continue;
+    if (!map.has(r.tl)) {
+      const row = { tl: r.tl, total: 0 };
+      MONTHS.forEach(mo => row[mo] = 0);
+      map.set(r.tl, row);
+    }
+    const row = map.get(r.tl);
+    row[m]++;
+    row.total++;
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
+}
+
+function aggregateSentBack(rowData, monthFilter, tlFilter, locFilter, search, sboFilter) {
+  const map = new Map();
+  for (const r of rowData) {
+    if (tlFilter && r.tl !== tlFilter) continue;
+    if (locFilter && r.loc !== locFilter) continue;
+    if (search && !(`${r.tl} ${r.loc} ${r.bn || ""}`.toLowerCase().includes(search.toLowerCase()))) continue;
+    const m = monthFromDate(r.date);
+    if (monthFilter && m !== monthFilter) continue;
+    if (!r.sbo) continue;
+    if (sboFilter && sboFilter.length && !sboFilter.includes(r.sbo)) continue;
+    if (!map.has(r.tl)) {
+      const row = { tl: r.tl, total: 0 };
+      SBO_KEYS.forEach(k => row[k] = 0);
+      map.set(r.tl, row);
+    }
+    const row = map.get(r.tl);
+    if (row[r.sbo] != null) { row[r.sbo]++; row.total++; }
+  }
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
+}
+
+// Builds Sent Back data grouped Month-wise (used for the month-wise Excel download only).
+// Reads the Delivery Date on each row, converts it to a Month via monthFromDate,
+// and returns only months that actually have matching data, in calendar order.
+function aggregateSentBackByMonth(rowData, monthFilter, tlFilter, locFilter, search, sboFilter) {
+  const monthMap = new Map(); // month label -> Map(tl -> row)
+  for (const r of rowData) {
+    if (tlFilter && r.tl !== tlFilter) continue;
+    if (locFilter && r.loc !== locFilter) continue;
+    if (search && !(`${r.tl} ${r.loc} ${r.bn || ""}`.toLowerCase().includes(search.toLowerCase()))) continue;
+    const m = monthFromDate(r.date);
+    if (!m) continue;
+    if (monthFilter && m !== monthFilter) continue;
+    if (!r.sbo) continue;
+    if (sboFilter && sboFilter.length && !sboFilter.includes(r.sbo)) continue;
+    if (!monthMap.has(m)) monthMap.set(m, new Map());
+    const tlMap = monthMap.get(m);
+    if (!tlMap.has(r.tl)) {
+      const row = { tl: r.tl, total: 0 };
+      SBO_KEYS.forEach(k => row[k] = 0);
+      tlMap.set(r.tl, row);
+    }
+    const row = tlMap.get(r.tl);
+    if (row[r.sbo] != null) { row[r.sbo]++; row.total++; }
+  }
+  const groups = [];
+  MONTHS.forEach(m => {
+    if (!monthMap.has(m)) return;
+    const rows = Array.from(monthMap.get(m).values()).sort((a, b) => b.total - a.total);
+    const grandTotal = rows.reduce((acc, r) => {
+      SBO_KEYS.forEach(k => { acc[k] = (acc[k] || 0) + (r[k] || 0); });
+      acc.total += r.total;
+      return acc;
+    }, { total: 0 });
+    groups.push({ month: m, rows, grandTotal });
+  });
+  return groups;
+}
+const THEME_ICON = { light: "&#9790;", dark: "&#9788;" };
+const DEFAULT_UPLOAD_DATE = "17-07-2026";
+
+function getInitialReportState() {
+  return {
+    paymentRows: [],
+    paymentMeta: { filename: null, date: null, warnings: [], error: null, count: 0 },
+    rowData: [],
+    rowDataMeta: { filename: null, date: null, warnings: [], error: null, count: 0 },
+    filters: { month: "", tl: "", location: "", status: "", search: "", sbo: [...SBO_KEYS], dedupeMode: "all" },
+    sort: { key: "total", dir: "desc" },
+    page: 1,
+    activeTab: "dashboard",
+    paymentGenerated: false,
+    reportGenerated: false,
+    staged: { mapping: null, payment: null, rowdata: null },
+    historyDetail: null,
+    historyBanner: null,
+    savingHistory: false,
+  };
+}
+
+const state = {
+  mode: "light",
+  history: [],
+  mappingRows: [],
+  mappingMeta: { filename: null, date: null, warnings: [], error: null, count: 0 },
+  ...getInitialReportState(),
+};
+
+function resetDashboard() {
+  Object.assign(state, getInitialReportState());
+  render();
+}
+
+function hasStagedUploads() {
+  return !!(state.staged.mapping || state.staged.payment || state.staged.rowdata);
+}
+
+const PAGE_SIZE = 15;
+const TABS = [
+  { id: "dashboard", label: "Dashboard", icon: "&#128200;" },
+  { id: "payment", label: "Payment verification", icon: "&#9989;" },
+  { id: "monthly", label: "Monthly orders", icon: "&#128230;" },
+  { id: "sentback", label: "Sent back", icon: "&#9888;" },
+  { id: "explorer", label: "Data explorer", icon: "&#128269;" },
+  { id: "history", label: "History", icon: "&#128337;" },
+];
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fmtNum(n) { return (n || 0).toLocaleString(); }
+
+function derive() {
+  const mappingDict = buildMappingDict(state.mappingRows);
+  const tlSet = new Set(state.mappingRows.map(m => m.tl));
+  state.rowData.forEach(r => tlSet.add(r.tl));
+  state.paymentRows.forEach(r => tlSet.add(r.tl));
+  const tlList = Array.from(tlSet).filter(Boolean).sort();
+  const effectiveRowData = state.filters.dedupeMode === "unique" ? dedupeByBookingId(state.rowData) : state.rowData;
+  const monthSet = new Set(effectiveRowData.map(r => monthFromDate(r.date)).filter(Boolean));
+  const availableMonths = MONTHS.filter(m => monthSet.has(m));
+  const mappedTLs = Array.from(new Set(state.mappingRows.map(m => m.tl))).filter(Boolean);
+
+  const locSet = new Set(state.mappingRows.map(m => m.location));
+  const locationList = Array.from(locSet).filter(Boolean).sort();
+
+  const f = state.filters;
+  const paymentReport = aggregatePayment(state.paymentRows, f.tl, f.location, f.status, f.search, mappedTLs);
+  const unknownLocationReport = aggregateUnknownLocations(state.paymentRows, f.tl, f.location, f.status, f.search);
+  const paymentGrandTotal = paymentReport.reduce((acc, r) => { acc.yes += r.yes; acc.no += r.no; acc.total += r.total; return acc; }, { yes: 0, no: 0, total: 0 });
+  const monthlyReport = aggregateMonthly(effectiveRowData, f.month, f.tl, f.location, f.search);
+  const sentBackReport = aggregateSentBack(effectiveRowData, f.month, f.tl, f.location, f.search, f.sbo);
+  const sentBackGrandTotal = sentBackReport.reduce((acc, r) => {
+    SBO_KEYS.forEach(k => { acc[k] = (acc[k] || 0) + (r[k] || 0); });
+    acc.total += r.total;
+    return acc;
+  }, { total: 0 });
+
+  let totalOrders = 0, payYes = 0, payNo = 0, breach = 0, pending = 0, noBreach = 0, sentBack = 0;
+  const activeTLs = new Set(), activeLocs = new Set();
+  monthlyReport.forEach(r => { totalOrders += r.total; activeTLs.add(r.tl); });
+  sentBackReport.forEach(r => { breach += r.Breach || 0; pending += r.Pending || 0; noBreach += r["No Breach"] || 0; sentBack += r["Sent Back"] || 0; });
+  paymentReport.forEach(r => { payYes += r.yes; payNo += r.no; });
+  effectiveRowData.forEach(r => { if (r.loc) activeLocs.add(r.loc); });
+  const kpis = { "Total orders": totalOrders, "Payment yes": payYes, "Payment no": payNo, "Breach": breach, "Pending": pending, "No breach": noBreach, "Sent back": sentBack, "Total TL": activeTLs.size || tlList.length, "Total locations": activeLocs.size || locationList.length };
+
+  const filteredExplorer = effectiveRowData.filter(r => {
+    if (f.tl && r.tl !== f.tl) return false;
+    if (f.location && r.loc !== f.location) return false;
+    if (f.month && monthFromDate(r.date) !== f.month) return false;
+    if (f.search && !(`${r.tl} ${r.loc} ${r.bn || ""} ${r.sbo || ""}`.toLowerCase().includes(f.search.toLowerCase()))) return false;
+    return true;
+  }).map(r => ({ ...r, month: monthFromDate(r.date) || "-" }));
+
+  return { mappingDict, tlList, locationList, availableMonths, paymentReport, unknownLocationReport, paymentGrandTotal, monthlyReport, sentBackReport, sentBackGrandTotal, kpis, filteredExplorer, effectiveRowData };
+}
+
+function sortRows(rows, key, dir) {
+  const copy = [...rows];
+  copy.sort((a, b) => {
+    const av = a[key], bv = b[key];
+    if (typeof av === "number" && typeof bv === "number") return dir === "asc" ? av - bv : bv - av;
+    const as = String(av ?? ""), bs = String(bv ?? "");
+    return dir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
+  });
+  return copy;
+}
+
+function exportCSV(filename, columns, rows) {
+  const header = columns.map(c => c.label).join(",");
+  const lines = rows.map(r => columns.map(c => {
+    const v = r[c.key];
+    const s = v == null ? "" : String(v);
+    return s.includes(",") ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(","));
+  const csv = [header, ...lines].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---- Styled Excel export (SpreadsheetML) ----
+// The bundled SheetJS community build cannot write cell styles, so professional
+// formatting (bold headers, borders, auto-fit columns, highlighted grand totals)
+// is produced with the Excel-native SpreadsheetML XML format instead, which
+// Excel opens directly with full styling support.
+function xmlEscape(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function excelXmlCell(value, styleId) {
+  const isNum = typeof value === "number";
+  const v = isNum ? value : xmlEscape(value == null ? "" : String(value));
+  if (value == null || value === "") return `<Cell${styleId ? ` ss:StyleID="${styleId}"` : ""}/>`;
+  return `<Cell${styleId ? ` ss:StyleID="${styleId}"` : ""}><Data ss:Type="${isNum ? "Number" : "String"}">${v}</Data></Cell>`;
+}
+function excelXmlRow(cells) {
+  return `<Row>${cells.map(c => excelXmlCell(c.v, c.style)).join("")}</Row>`;
+}
+function excelXmlColWidths(columns, rows) {
+  return columns.map(c => {
+    const maxLen = Math.max(String(c.label).length, ...rows.map(r => String(r[c.key] ?? "").length), 4);
+    return Math.min(Math.max(maxLen * 7 + 16, 60), 260);
+  });
+}
+function buildExcelXmlSheetFromRows(name, rows, colWidths) {
+  let xml = `<Worksheet ss:Name="${xmlEscape(name).slice(0, 31)}"><Table>`;
+  (colWidths || []).forEach(w => { xml += `<Column ss:Width="${w}"/>`; });
+  rows.forEach(r => { xml += excelXmlRow(r); });
+  xml += `</Table></Worksheet>`;
+  return xml;
+}
+function buildExcelXmlSheet(name, columns, rows, grandTotalRow) {
+  const colWidths = excelXmlColWidths(columns, grandTotalRow ? [...rows, grandTotalRow] : rows);
+  const xmlRows = [];
+  xmlRows.push(columns.map(c => ({ v: c.label, style: "sHeader" })));
+  rows.forEach(r => xmlRows.push(columns.map(c => ({ v: r[c.key] ?? (c.key === "tl" || c.key === "loc" ? "" : 0), style: "sCell" }))));
+  if (grandTotalRow) xmlRows.push(columns.map(c => ({ v: grandTotalRow[c.key], style: "sTotal" })));
+  return buildExcelXmlSheetFromRows(name, xmlRows, colWidths);
+}
+function writeExcelXml(filename, sheetsXml) {
+  const styles = `
+  <Style ss:ID="sHeader"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2F5496" ss:Pattern="Solid"/>
+    <Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders>
+    <Alignment ss:Horizontal="Center"/></Style>
+  <Style ss:ID="sCell"><Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
+  <Style ss:ID="sTotal"><Font ss:Bold="1"/><Interior ss:Color="#FFE699" ss:Pattern="Solid"/>
+    <Borders><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
+  <Style ss:ID="sSection"><Font ss:Bold="1" ss:Size="12"/></Style>`;
+  const xml = `<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n<Styles>${styles}</Styles>\n${sheetsXml}\n</Workbook>`;
+  const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportXLSX(filename, columns, rows, grandTotal, extraSheet, sheetName) {
+  const outName = filename.replace(/\.xlsx$/i, ".xls");
+  const totalRow = {};
+  columns.forEach(c => { totalRow[c.key] = c.key === "tl" ? "Grand Total" : (grandTotal[c.key] ?? ""); });
+  let sheets = buildExcelXmlSheet(sheetName || "Payment Verification", columns, rows, totalRow);
+  if (extraSheet && extraSheet.rows.length) {
+    sheets += buildExcelXmlSheet("Unknown Locations", extraSheet.columns, extraSheet.rows, null);
+  }
+  writeExcelXml(outName, sheets);
+}
+
+// Writes the Sent Back Report Excel grouped Month-wise: one block per month with
+// its own header row and Grand Total row, followed by an Overall Grand Total
+// summarizing all months combined. Only months with data are included, in
+// calendar order (January -> December).
+// Uses the same styled Excel-native SpreadsheetML output as the other exports
+// (bold headers, borders on every cell, highlighted Grand Total rows, auto-fit
+// column widths) so formatting is consistent across every download in the app.
+function exportSentBackMonthWise(filename, columns, monthGroups) {
+  const valueCols = columns.filter(c => c.key !== "tl" && c.key !== "total");
+  const overallTotal = { total: 0 };
+  valueCols.forEach(c => { overallTotal[c.key] = 0; });
+
+  const xmlRows = [];
+  const widthSampleRows = []; // plain row objects, used only to compute auto-fit widths
+  monthGroups.forEach(g => {
+    xmlRows.push([{ v: `Month: ${g.month}`, style: "sSection" }]);
+    xmlRows.push(columns.map(c => ({ v: c.label, style: "sHeader" })));
+    g.rows.forEach(r => {
+      xmlRows.push(columns.map(c => ({ v: r[c.key] ?? (c.key === "tl" ? "" : 0), style: "sCell" })));
+      widthSampleRows.push(r);
+    });
+    const totalRow = {};
+    columns.forEach(c => { totalRow[c.key] = c.key === "tl" ? "Grand Total" : (g.grandTotal[c.key] ?? 0); });
+    xmlRows.push(columns.map(c => ({ v: totalRow[c.key], style: "sTotal" })));
+    widthSampleRows.push(totalRow);
+    xmlRows.push([]);
+    valueCols.forEach(c => { overallTotal[c.key] += (g.grandTotal[c.key] || 0); });
+    overallTotal.total += g.grandTotal.total;
+  });
+
+  const overallRow = {};
+  columns.forEach(c => { overallRow[c.key] = c.key === "tl" ? "Overall Grand Total" : (overallTotal[c.key] ?? 0); });
+  xmlRows.push([{ v: "Overall Grand Total", style: "sSection" }]);
+  xmlRows.push(columns.map(c => ({ v: overallRow[c.key], style: "sTotal" })));
+  widthSampleRows.push(overallRow);
+
+  const colWidths = excelXmlColWidths(columns, widthSampleRows);
+  const sheetXml = buildExcelXmlSheetFromRows("Sent Back Report", xmlRows.length ? xmlRows : [[{ v: "No data", style: "sCell" }]], colWidths);
+  writeExcelXml(filename.replace(/\.xlsx$/i, ".xls"), sheetXml);
+}
+function buildSentBackFilter(f) {
+  const selected = f.sbo || [];
+  const allSelected = selected.length === SBO_KEYS.length;
+  return `
+  <div class="filterfield">
+    <label>Sent Back Option</label>
+    <div class="flex" style="flex-wrap:wrap; align-items:center; gap:10px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; background:var(--surface);">
+      <label class="flex row gap6" style="font-weight:600; cursor:pointer;">
+        <input type="checkbox" data-sbo-filter="__all__" ${allSelected ? "checked" : ""} /> Select All
+      </label>
+      ${SBO_KEYS.map(k => `
+      <label class="flex row gap6" style="cursor:pointer;">
+        <input type="checkbox" data-sbo-filter="${esc(k)}" ${selected.includes(k) ? "checked" : ""} /> ${esc(k)}
+      </label>`).join("")}
+    </div>
+  </div>`;
+}
+function buildFilterBar(d) {
+  const f = state.filters;
+  const active = f.month || f.tl || f.location || f.status || f.search || (state.activeTab === "sentback" && f.sbo && f.sbo.length !== SBO_KEYS.length);
+  return `
+  <div class="card filterbar no-print">
+    ${state.activeTab !== "payment" ? `
+    <div class="filterfield">
+      <label>Month</label>
+      <select class="select" data-filter="month">
+        <option value="">All months</option>
+        ${d.availableMonths.map(m => `<option value="${m}" ${f.month === m ? "selected" : ""}>${m}</option>`).join("")}
+      </select>
+    </div>` : ""}
+    <div class="filterfield">
+      <label>TL</label>
+      <select class="select" data-filter="tl">
+        <option value="">All TLs</option>
+        ${d.tlList.map(tl => `<option value="${esc(tl)}" ${f.tl === tl ? "selected" : ""}>${esc(tl)}</option>`).join("")}
+      </select>
+    </div>
+    <div class="filterfield">
+      <label>Location</label>
+      <select class="select" data-filter="location">
+        <option value="">All locations</option>
+        ${d.locationList.map(l => `<option value="${esc(l)}" ${f.location === l ? "selected" : ""}>${esc(l)}</option>`).join("")}
+      </select>
+    </div>
+    ${state.activeTab === "sentback" ? buildSentBackFilter(f) : `
+    <div class="filterfield">
+      <label>Payment status</label>
+      <select class="select" data-filter="status">
+        <option value="">All</option>
+        <option value="Yes" ${f.status === "Yes" ? "selected" : ""}>Yes Only</option>
+        <option value="No" ${f.status === "No" ? "selected" : ""}>No Only</option>
+      </select>
+    </div>`}
+    <div class="filterfield grow">
+      <label>Search</label>
+      <input class="input" style="width:100%;" data-filter="search" value="${esc(f.search)}" placeholder="Search TL, location, booking number..." />
+    </div>
+    <div class="filterfield">
+      <label>Records</label>
+      <select class="select" data-filter="dedupeMode">
+        <option value="all" ${f.dedupeMode !== "unique" ? "selected" : ""}>All records</option>
+        <option value="unique" ${f.dedupeMode === "unique" ? "selected" : ""}>Unique Booking ID only</option>
+      </select>
+    </div>
+    ${active ? `<button class="btn" id="clearFiltersBtn">&times; Clear</button>` : ""}
+    ${(state.activeTab === "payment" || hasStagedUploads()) ? `<button class="btn" id="generateReportBtn" style="display:flex; align-items:center; gap:6px; background:var(--accentBg); color:var(--accentText); border:1px solid var(--accent);">&#128203; Generate Report</button>` : ""}
+  </div>`;
+}
+
+function buildReportTable({ title, columns, rows, exportName, exportColumns, emptyText, id, exportLabel }) {
+  if (!rows.length) {
+    return `<div class="card">
+      <div class="flex row between" style="padding:12px 16px; border-bottom:1px solid var(--border);">
+        <div style="font-size:14px; font-weight:600;">${esc(title)}</div>
+      </div>
+      <div style="padding:24px; text-align:center; font-size:13px;" class="muted">${esc(emptyText)}</div>
+    </div>`;
+  }
+  const sorted = sortRows(rows, state.sort.key, state.sort.dir);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const currentPage = Math.min(state.page, totalPages);
+  const pageRows = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const leftKeys = new Set(["tl", "loc", "bn", "date", "month", "sbo", "status"]);
+  return `<div class="card" id="${id}" data-export="${esc(exportName)}">
+    <div class="flex row between" style="padding:12px 16px; border-bottom:1px solid var(--border);">
+      <div style="font-size:14px; font-weight:600;">${esc(title)}</div>
+      <button class="btn no-print" data-export-btn="${id}" ${state.reportGenerated ? "" : "disabled"} style="${state.reportGenerated ? "" : "opacity:.45; cursor:not-allowed;"}">&#8595; ${esc(exportLabel || "Export CSV")}</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="rt">
+        <thead><tr>
+          ${columns.map(c => `<th class="${leftKeys.has(c.key) ? "left" : ""}" data-sort-key="${c.key}">${esc(c.label)} ${state.sort.key === c.key ? (state.sort.dir === "asc" ? "&#9650;" : "&#9660;") : ""}</th>`).join("")}
+        </tr></thead>
+        <tbody>
+          ${pageRows.map(r => `<tr>${columns.map(c => {
+            const v = r[c.key];
+            const isNum = typeof v === "number";
+            return `<td class="${leftKeys.has(c.key) ? "left" : ""} ${c.key === "total" ? "total" : ""}">${v == null || v === "" ? "-" : (isNum ? fmtNum(v) : esc(v))}</td>`;
+          }).join("")}</tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="flex row between no-print" style="padding:8px 16px; border-top:1px solid var(--border); font-size:12px;">
+      <span class="muted">${fmtNum(sorted.length)} row${sorted.length === 1 ? "" : "s"}</span>
+      <div class="flex row gap8">
+        <button class="btn" data-page="prev" style="padding:4px; ${currentPage === 1 ? "opacity:.4;" : ""}" ${currentPage === 1 ? "disabled" : ""}>&#8592;</button>
+        <span>${currentPage} / ${totalPages}</span>
+        <button class="btn" data-page="next" style="padding:4px; ${currentPage === totalPages ? "opacity:.4;" : ""}" ${currentPage === totalPages ? "disabled" : ""}>&#8594;</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildMetricCard(label, value) {
+  return `<div class="kpi-card">
+    <div class="flex row between" style="margin-bottom:4px;">
+      <span style="font-size:11px;" class="muted">${esc(label)}</span>
+    </div>
+    <div style="font-size:22px; font-weight:600;">${fmtNum(value)}</div>
+  </div>`;
+}
+
+function buildBarChart(data, color) {
+  const max = Math.max(1, ...data.map(d => d.value));
+  return `<div class="chartbar-wrap">${data.map(d => `
+    <div class="chartbar-col">
+      <span style="font-size:10px;" class="muted">${d.value || ""}</span>
+      <div class="chartbar" style="background:${color}; opacity:${d.value ? 1 : 0.15}; height:${Math.max(2, (d.value / max) * 100)}%;"></div>
+      <span style="font-size:10px; margin-top:4px;" class="mut2">${esc(d.label)}</span>
+    </div>`).join("")}</div>`;
+}
+
+function buildUploadCard(kind, title, subtitle, meta) {
+  const pending = !!(state.staged && state.staged[kind]);
+  if (kind === "mapping" && meta.filename && !meta.error) {
+    return `<div class="card" style="padding:14px;">
+      <div class="flex row gap8" style="margin-bottom:2px;">
+        <div style="font-size:13px; font-weight:600;">${esc(title)}</div>
+      </div>
+      <div style="font-size:11px; margin-bottom:10px;" class="muted">${esc(subtitle)}</div>
+      <div style="font-size:12px;">
+        <div style="color:var(--successText);">&#9989; Master mapping saved &middot; ${fmtNum(meta.count)} location(s)</div>
+        <div class="muted" style="word-break:break-word;">${esc(meta.filename)}</div>
+        ${meta.date ? `<div class="mut2" style="font-size:11px;">Saved ${esc(meta.date)}</div>` : ""}
+        ${(meta.warnings || []).map(w => `<div class="warn-box" style="color:var(--warningText); background:var(--warningBg);">&#9888; ${esc(w)}</div>`).join("")}
+      </div>
+      <label class="btn" style="display:inline-flex; align-items:center; gap:6px; margin-top:10px; cursor:pointer;">
+        &#128260; Replace Mapping File
+        <input type="file" accept=".xlsx,.xls" data-file-input="${kind}" style="display:none;" />
+      </label>
+    </div>`;
+  }
+  return `<div class="card" style="padding:14px;">
+    <div class="flex row gap8" style="margin-bottom:2px;">
+      <div style="font-size:13px; font-weight:600;">${esc(title)}</div>
+    </div>
+    <div style="font-size:11px; margin-bottom:10px;" class="muted">${esc(subtitle)}</div>
+    <label class="dropzone" data-drop="${kind}">
+      <div style="font-size:18px; margin-bottom:4px;">&#8593;</div>
+      <div style="font-size:12px;" class="muted">Drag file here or click to browse</div>
+      <input type="file" accept=".xlsx,.xls" data-file-input="${kind}" style="display:none;" />
+    </label>
+    ${meta.filename ? `
+    <div style="margin-top:10px; font-size:12px;">
+      <div class="muted" style="word-break:break-word;">${esc(meta.filename)}</div>
+      ${meta.date ? `<div class="mut2" style="font-size:11px;">Uploaded ${esc(meta.date)}${meta.count ? ` &middot; ${fmtNum(meta.count)} rows` : ""}</div>` : ""}
+      ${meta.error
+        ? `<div class="warn-box" style="color:var(--dangerText); background:var(--dangerBg);">&#10060; ${esc(meta.error)}</div>`
+        : `<div class="flex row gap6" style="color:var(--successText); margin-top:4px;">&#9989; Loaded</div>`}
+      ${(meta.warnings || []).map(w => `<div class="warn-box" style="color:var(--warningText); background:var(--warningBg);">&#9888; ${esc(w)}</div>`).join("")}
+      ${pending ? `<div class="warn-box" style="color:var(--warningText); background:var(--warningBg);">&#9203; New file ready — click <strong>Generate Report</strong> to apply it. The current report stays visible until then.</div>` : ""}
+    </div>` : ""}
+  </div>`;
+}
+function renderDashboard(d) {
+  const kpiHtml = Object.entries(d.kpis).map(([k, v]) => buildMetricCard(k, v)).join("");
+  const bannerHtml = state.historyBanner ? `<div class="no-print" style="margin-bottom:12px; padding:8px 12px; border-radius:8px; font-size:13px; background:${state.historyBanner.type === "success" ? "var(--successBg)" : "var(--dangerBg)"}; color:${state.historyBanner.type === "success" ? "var(--successText)" : "var(--dangerText)"};">${esc(state.historyBanner.text)}</div>` : "";
+  return `
+  <div class="kpi-grid">${kpiHtml}</div>
+  <div class="flex row between no-print" style="margin-bottom:8px;">
+    <div style="font-size:14px; font-weight:600;">Upload today's files</div>
+    <button class="btn" id="saveHistoryBtn" style="display:flex; align-items:center; gap:6px; background:var(--accentBg); color:var(--accentText); border:1px solid var(--accent);">
+      &#128190; ${state.savingHistory ? "Saving..." : "Save today's report to history"}
+    </button>
+  </div>
+  ${bannerHtml}
+  <div class="upload-grid no-print">
+    ${buildUploadCard("mapping", "Location Assign By TL", "Mapping file, upload only when TLs or locations change", state.mappingMeta)}
+    ${buildUploadCard("payment", "Payment Verification Tracker", "Changes daily", state.paymentMeta)}
+    ${buildUploadCard("rowdata", "Row Data", "Changes daily", state.rowDataMeta)}
+  </div>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); gap:16px;">
+    <div class="card" style="padding:16px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:10px;">Orders by month</div>
+      ${buildBarChart(d.availableMonths.map(m => ({ label: m, value: d.effectiveRowData.filter(r => monthFromDate(r.date) === m).length })), "var(--accent)")}
+    </div>
+    <div class="card" style="padding:16px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:10px;">Sent back options</div>
+      ${buildBarChart(SBO_KEYS.map(k => ({ label: k, value: d.effectiveRowData.filter(r => r.sbo === k).length })), "#854F0B")}
+    </div>
+  </div>`;
+}
+
+function paymentStatusMode() {
+  return state.filters.status === "Yes" ? "yes" : state.filters.status === "No" ? "no" : "all";
+}
+function paymentColumns(mode) {
+  if (mode === "yes") return [{ key: "tl", label: "TL Name" }, { key: "yes", label: "Yes" }, { key: "total", label: "Total" }];
+  if (mode === "no") return [{ key: "tl", label: "TL Name" }, { key: "no", label: "No" }, { key: "total", label: "Total" }];
+  return [{ key: "tl", label: "TL Name" }, { key: "yes", label: "Yes" }, { key: "no", label: "No" }, { key: "total", label: "Total" }];
+}
+function unknownLocationColumns(mode) {
+  if (mode === "yes") return [{ key: "loc", label: "Location" }, { key: "yes", label: "Yes" }, { key: "total", label: "Total" }];
+  if (mode === "no") return [{ key: "loc", label: "Location" }, { key: "no", label: "No" }, { key: "total", label: "Total" }];
+  return [{ key: "loc", label: "Location" }, { key: "yes", label: "Yes" }, { key: "no", label: "No" }, { key: "total", label: "Total" }];
+}
+
+function renderPayment(d) {
+  if (!state.paymentGenerated) {
+    return `<div class="card" style="padding:32px; text-align:center;">
+      <div style="font-size:28px; margin-bottom:8px;">&#128203;</div>
+      <div style="font-size:14px; font-weight:600; margin-bottom:4px;">No report generated yet</div>
+      <div style="font-size:13px;" class="muted">Set your filters above, then click <strong>Generate Report</strong> to build the TL-wise payment verification report.</div>
+    </div>`;
+  }
+
+  const mode = paymentStatusMode();
+  const exportSuffix = mode === "yes" ? "Yes" : mode === "no" ? "No" : "All";
+
+  const mainTable = buildReportTable({
+    id: "paymentTable", title: "Payment verification summary",
+    columns: paymentColumns(mode),
+    rows: d.paymentReport, exportName: `Payment_Verification_${exportSuffix}.xlsx`,
+    exportLabel: "Download Excel",
+    emptyText: "No payment verification data yet. Upload today's Payment Verification Tracker file on the Dashboard tab.",
+  });
+
+  const grandTotalHtml = d.paymentReport.length ? `
+  <div class="card" style="padding:10px 16px; margin-top:8px; font-size:13px; font-weight:600; display:flex; justify-content:flex-end; gap:20px;">
+    <span>Grand Total</span>
+    ${mode !== "no" ? `<span>Yes: ${fmtNum(d.paymentGrandTotal.yes)}</span>` : ""}
+    ${mode !== "yes" ? `<span>No: ${fmtNum(d.paymentGrandTotal.no)}</span>` : ""}
+    <span>Total: ${fmtNum(d.paymentGrandTotal.total)}</span>
+  </div>` : "";
+
+  const unknownHtml = d.unknownLocationReport.length ? `
+  <div class="card" style="margin-top:16px;">
+    <div style="padding:12px 16px; border-bottom:1px solid var(--border); font-size:14px; font-weight:600;">Unknown Location Details</div>
+    <div style="overflow-x:auto;">
+      <table class="rt">
+        <thead><tr>
+          <th class="left">Location</th>
+          ${mode !== "no" ? `<th>Yes</th>` : ""}
+          ${mode !== "yes" ? `<th>No</th>` : ""}
+          <th>Total</th>
+        </tr></thead>
+        <tbody>
+          ${d.unknownLocationReport.map(r => `<tr>
+            <td class="left">${esc(r.loc || "(blank)")}</td>
+            ${mode !== "no" ? `<td>${fmtNum(r.yes)}</td>` : ""}
+            ${mode !== "yes" ? `<td>${fmtNum(r.no)}</td>` : ""}
+            <td class="total">${fmtNum(r.total)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  </div>` : "";
+
+  return mainTable + grandTotalHtml + unknownHtml;
+}
+function renderMonthly(d) {
+  return buildReportTable({
+    id: "monthlyTable", title: "Monthly order summary",
+    columns: [{ key: "tl", label: "TL name" }, ...d.availableMonths.map(m => ({ key: m, label: m })), { key: "total", label: "Total" }],
+    rows: d.monthlyReport, exportName: "monthly_order_summary.csv",
+    emptyText: "No row data yet. Upload today's Row Data file on the Dashboard tab.",
+  });
+}
+function sentBackLabel(k) { return k === "No Breach" ? "No breach" : (k === "Sent Back" ? "Sent back" : k); }
+function sentBackColumns(sboFilter) {
+  const selected = (sboFilter && sboFilter.length) ? sboFilter : SBO_KEYS;
+  const cols = [{ key: "tl", label: "TL name" }];
+  SBO_KEYS.forEach(k => { if (selected.includes(k)) cols.push({ key: k, label: sentBackLabel(k) }); });
+  cols.push({ key: "total", label: "Total" });
+  return cols;
+}
+function sentBackFileName(sboFilter) {
+  const selected = (sboFilter && sboFilter.length) ? sboFilter : [];
+  if (!selected.length || selected.length === SBO_KEYS.length) return "Sent_Back_All.xlsx";
+  return "Sent_Back_" + selected.map(s => s.replace(/\s+/g, "")).join("_") + ".xlsx";
+}
+function renderSentBack(d) {
+  const f = state.filters;
+  const cols = sentBackColumns(f.sbo);
+  const mainTable = buildReportTable({
+    id: "sentbackTable", title: "Sent back summary",
+    columns: cols,
+    rows: d.sentBackReport, exportName: sentBackFileName(f.sbo),
+    exportLabel: "Download Excel",
+    emptyText: "No row data yet, or no records match the selected Sent Back Option(s).",
+  });
+
+  const grandTotalHtml = d.sentBackReport.length ? `
+  <div class="card" style="padding:10px 16px; margin-top:8px; font-size:13px; font-weight:600; display:flex; justify-content:flex-end; gap:20px;">
+    <span>Grand Total</span>
+    ${cols.filter(c => c.key !== "tl" && c.key !== "total").map(c => `<span>${esc(c.label)}: ${fmtNum(d.sentBackGrandTotal[c.key] || 0)}</span>`).join("")}
+    <span>Total: ${fmtNum(d.sentBackGrandTotal.total)}</span>
+  </div>` : "";
+
+  return mainTable + grandTotalHtml;
+}
+function renderExplorer(d) {
+  return buildReportTable({
+    id: "explorerTable", title: `Row data explorer (${fmtNum(d.filteredExplorer.length)} record${d.filteredExplorer.length === 1 ? "" : "s"})`,
+    columns: [{ key: "tl", label: "TL name" }, { key: "loc", label: "Location" }, { key: "bn", label: "Booking no" }, { key: "date", label: "Delivery date" }, { key: "month", label: "Month" }, { key: "sbo", label: "Sent back" }, { key: "status", label: "Deal status" }],
+    rows: d.filteredExplorer, exportName: "row_data_export.csv",
+    emptyText: "No row data to show.",
+  });
+}
+
+function renderHistory() {
+  const listHtml = state.history.length === 0
+    ? `<div style="font-size:13px;" class="muted">No reports saved yet. Go to the Dashboard tab and click "Save today's report to history".</div>`
+    : state.history.map(h => `
+      <div class="flex row between" data-history-item="${esc(h.dateKey)}" style="border-radius:8px; cursor:pointer; padding:8px; margin-bottom:2px; background:${state.historyDetail && state.historyDetail.dateKey === h.dateKey ? "var(--accentBg)" : "transparent"};">
+        <span style="font-size:13px;">${esc(h.label)}</span>
+        <button class="btn" data-history-delete="${esc(h.dateKey)}" style="border:none; background:transparent; padding:2px;">&#128465;</button>
+      </div>`).join("");
+
+  let detailHtml = "";
+  if (state.historyDetail) {
+    const hd = state.historyDetail;
+    detailHtml = `<div class="card" style="padding:16px;">
+      <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Report for ${esc(hd.label)}</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:8px; margin-bottom:16px;">
+        ${Object.entries(hd.kpis).map(([k, v]) => `<div style="background:var(--surfaceAlt); border-radius:8px; padding:8px 10px;"><div style="font-size:11px;" class="muted">${esc(k)}</div><div style="font-size:16px; font-weight:600;">${fmtNum(v)}</div></div>`).join("")}
+      </div>
+      ${buildMiniTable("Payment verification", hd.paymentReport, ["tl", "yes", "no", "total"])}
+      ${buildMiniTable("Sent back", hd.sentBackReport, ["tl", "Breach", "Pending", "No Breach", "Sent Back", "total"])}
+    </div>`;
+  }
+
+  return `<div style="display:grid; grid-template-columns:${state.historyDetail ? "220px 1fr" : "1fr"}; gap:16px;">
+    <div class="card" style="padding:12px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:10px;">Saved reports</div>
+      ${listHtml}
+    </div>
+    ${detailHtml}
+  </div>`;
+}
+
+function buildMiniTable(title, rows, columns) {
+  return `<div style="margin-bottom:16px;">
+    <div style="font-size:12px; font-weight:600; margin-bottom:6px;" class="muted">${esc(title)}</div>
+    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+      <thead><tr>${columns.map(c => `<th style="text-align:${c === "tl" ? "left" : "right"}; padding:6px 8px; border-bottom:1px solid var(--border);" class="mut2">${esc(c)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.slice(0, 10).map(r => `<tr>${columns.map(c => `<td style="padding:6px 8px; text-align:${c === "tl" ? "left" : "right"}; border-bottom:1px solid var(--border);" class="muted">${r[c] ?? "-"}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table>
+  </div>`;
+}
+
+function render() {
+  document.getElementById("app").setAttribute("data-theme", state.mode);
+  document.getElementById("themeBtn").innerHTML = state.mode === "light" ? "&#9790; Theme" : "&#9788; Theme";
+
+  const printBtnEl = document.getElementById("printBtn");
+  printBtnEl.disabled = !state.reportGenerated;
+  printBtnEl.style.opacity = state.reportGenerated ? "1" : ".45";
+  printBtnEl.style.cursor = state.reportGenerated ? "pointer" : "not-allowed";
+
+  document.getElementById("tabsRow").innerHTML = TABS.map(tb => `
+    <button class="tabbtn ${state.activeTab === tb.id ? "active" : ""}" data-tab="${tb.id}">${tb.icon} ${esc(tb.label)}</button>
+  `).join("");
+
+  const d = derive();
+  let body = "";
+  if (state.activeTab !== "history") body += buildFilterBar(d);
+  if (state.activeTab === "dashboard") body += renderDashboard(d);
+  else if (state.activeTab === "payment") body += renderPayment(d);
+  else if (state.activeTab === "monthly") body += renderMonthly(d);
+  else if (state.activeTab === "sentback") body += renderSentBack(d);
+  else if (state.activeTab === "explorer") body += renderExplorer(d);
+  else if (state.activeTab === "history") body += renderHistory();
+
+  document.getElementById("content").innerHTML = body;
+  attachContentListeners();
+}
+function attachContentListeners() {
+  document.querySelectorAll("[data-filter]").forEach(el => {
+    el.addEventListener(el.tagName === "SELECT" ? "change" : "input", (e) => {
+      const key = el.getAttribute("data-filter");
+      state.filters[key] = e.target.value;
+      state.page = 1;
+      if (state.activeTab === "payment" && key !== "month") state.paymentGenerated = false;
+      render();
+    });
+  });
+  const clearBtn = document.getElementById("clearFiltersBtn");
+  if (clearBtn) clearBtn.addEventListener("click", () => {
+    state.filters = { month: "", tl: "", location: "", status: "", search: "", sbo: [...SBO_KEYS] };
+    state.page = 1;
+    if (state.activeTab === "payment") state.paymentGenerated = false;
+    render();
+  });
+
+  document.querySelectorAll("[data-sbo-filter]").forEach(el => {
+    el.addEventListener("change", () => {
+      const val = el.getAttribute("data-sbo-filter");
+      if (val === "__all__") {
+        state.filters.sbo = el.checked ? [...SBO_KEYS] : [];
+      } else {
+        const cur = new Set(state.filters.sbo || []);
+        if (el.checked) cur.add(val); else cur.delete(val);
+        state.filters.sbo = SBO_KEYS.filter(k => cur.has(k));
+      }
+      state.page = 1;
+      render();
+    });
+  });
+  const generateBtn = document.getElementById("generateReportBtn");
+  if (generateBtn) generateBtn.addEventListener("click", () => {
+    if (state.staged.mapping) { state.mappingRows = state.staged.mapping.data; state.staged.mapping = null; }
+    if (state.staged.payment) { state.paymentRows = state.staged.payment.data; state.staged.payment = null; }
+    if (state.staged.rowdata) { state.rowData = state.staged.rowdata.data; state.staged.rowdata = null; }
+    state.paymentGenerated = true;
+    state.reportGenerated = true;
+    state.page = 1;
+    render();
+  });
+
+  document.querySelectorAll("[data-sort-key]").forEach(el => {
+    el.addEventListener("click", () => {
+      const key = el.getAttribute("data-sort-key");
+      state.sort = state.sort.key === key ? { key, dir: state.sort.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" };
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-page]").forEach(el => {
+    el.addEventListener("click", () => {
+      if (el.hasAttribute("disabled")) return;
+      state.page += el.getAttribute("data-page") === "next" ? 1 : -1;
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-export-btn]").forEach(el => {
+    el.addEventListener("click", () => {
+      if (el.hasAttribute("disabled") || !state.reportGenerated) return;
+      const containerId = el.getAttribute("data-export-btn");
+      const container = document.getElementById(containerId);
+      const exportName = container.getAttribute("data-export");
+      const d = derive();
+      if (containerId === "paymentTable") {
+        const mode = paymentStatusMode();
+        exportXLSX(
+          exportName,
+          paymentColumns(mode),
+          sortRows(d.paymentReport, state.sort.key, state.sort.dir),
+          d.paymentGrandTotal,
+          { columns: unknownLocationColumns(mode), rows: d.unknownLocationReport }
+        );
+        return;
+      }
+      if (containerId === "sentbackTable") {
+        const cols = sentBackColumns(state.filters.sbo);
+        const f2 = state.filters;
+        const exportRowData = f2.dedupeMode === "unique" ? dedupeByBookingId(state.rowData) : state.rowData;
+        const monthGroups = aggregateSentBackByMonth(exportRowData, f2.month, f2.tl, f2.location, f2.search, f2.sbo);
+        exportSentBackMonthWise(exportName, cols, monthGroups);
+        return;
+      }
+      let rows, columns;
+      if (containerId === "monthlyTable") { rows = d.monthlyReport; columns = [{ key: "tl", label: "TL Name" }, ...d.availableMonths.map(m => ({ key: m, label: m })), { key: "total", label: "Total" }]; }
+      else { rows = d.filteredExplorer; columns = [{ key: "tl", label: "TL Name" }, { key: "loc", label: "Location" }, { key: "bn", label: "Booking No" }, { key: "date", label: "Delivery Date" }, { key: "month", label: "Month" }, { key: "sbo", label: "Sent Back" }, { key: "status", label: "Deal Status" }]; }
+      exportCSV(exportName, columns, sortRows(rows, state.sort.key, state.sort.dir));
+    });
+  });
+
+  ["mapping", "payment", "rowdata"].forEach(kind => {
+    const drop = document.querySelector(`[data-drop="${kind}"]`);
+    const input = document.querySelector(`[data-file-input="${kind}"]`);
+    if (drop) {
+      drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+      drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+      drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); if (e.dataTransfer.files[0]) handleUpload(kind, e.dataTransfer.files[0]); });
+    }
+    if (input) input.addEventListener("change", e => { if (e.target.files[0]) handleUpload(kind, e.target.files[0]); });
+  });
+
+  const saveBtn = document.getElementById("saveHistoryBtn");
+  if (saveBtn) saveBtn.addEventListener("click", saveToHistory);
+
+  document.querySelectorAll("[data-history-item]").forEach(el => {
+    el.addEventListener("click", () => loadHistoryDetail(el.getAttribute("data-history-item")));
+  });
+  document.querySelectorAll("[data-history-delete]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); deleteHistoryEntry(el.getAttribute("data-history-delete")); });
+  });
+}
+
+async function handleUpload(kind, file) {
+  const uploadDate = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const sig = `${file.name}|${file.size}|${file.lastModified}`;
+  const priorMeta = kind === "mapping" ? state.mappingMeta : kind === "payment" ? state.paymentMeta : state.rowDataMeta;
+  if (priorMeta && priorMeta.signature === sig) {
+    const proceed = window.confirm("This file appears to have already been processed. Do you want to continue?");
+    if (!proceed) return;
+  }
+  try {
+    const { rows } = await readWorkbook(file);
+    const mappingDict = buildMappingDict(state.mappingRows);
+    let res;
+    if (kind === "mapping") res = processMappingRows(rows);
+    else if (kind === "payment") res = processPaymentRows(rows, mappingDict);
+    else res = processRowDataRows(rows, mappingDict);
+
+    const meta = { filename: file.name, date: uploadDate, warnings: res.warnings || [], error: res.error || null, count: res.data.length, signature: sig };
+    if (kind === "mapping") state.mappingMeta = meta;
+    else if (kind === "payment") state.paymentMeta = meta;
+    else state.rowDataMeta = meta;
+
+    if (res.error) {
+      state.staged[kind] = null;
+      render();
+      return;
+    }
+
+    if (kind === "mapping") {
+      // Master Mapping is saved once and reused automatically — commit immediately, no staging.
+      state.mappingRows = res.data;
+      try { await window.storage.set("mapping-latest", JSON.stringify({ rows: res.data, meta }), false); } catch (e) {}
+    } else {
+      // Payment / Row Data drive the report — hold new data until the user clicks Generate Report,
+      // so the currently visible report and downloads are unaffected until then.
+      state.staged[kind] = { data: res.data, meta };
+    }
+  } catch (e) {
+    const msg = "Couldn't read this file. Make sure it's a valid .xlsx or .xls Excel file.";
+    const meta = { filename: file.name, date: uploadDate, warnings: [], error: msg, count: 0, signature: sig };
+    if (kind === "mapping") state.mappingMeta = meta;
+    else if (kind === "payment") state.paymentMeta = meta;
+    else state.rowDataMeta = meta;
+    state.staged[kind] = null;
+  }
+  render();
+}
+
+async function saveToHistory() {
+  state.savingHistory = true; render();
+  try {
+    const d = derive();
+    const dateKey = new Date().toISOString().slice(0, 10);
+    const label = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const snapshot = { dateKey, label, kpis: d.kpis, paymentReport: d.paymentReport, monthlyReport: d.monthlyReport, sentBackReport: d.sentBackReport, savedAt: new Date().toISOString() };
+    await window.storage.set(`history:${dateKey}`, JSON.stringify(snapshot), false);
+    const newIndex = [{ dateKey, label }, ...state.history.filter(h => h.dateKey !== dateKey)].sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    state.history = newIndex;
+    await window.storage.set("history-index", JSON.stringify(newIndex), false);
+    state.historyBanner = { type: "success", text: `Report saved for ${label}.` };
+  } catch (e) {
+    state.historyBanner = { type: "error", text: "Couldn't save this report. Try again." };
+  }
+  state.savingHistory = false;
+  render();
+  setTimeout(() => { state.historyBanner = null; render(); }, 4000);
+}
+
+async function loadHistoryDetail(dateKey) {
+  try {
+    const res = await window.storage.get(`history:${dateKey}`, false);
+    if (res && res.value) state.historyDetail = JSON.parse(res.value);
+  } catch (e) { state.historyDetail = null; }
+  render();
+}
+
+async function deleteHistoryEntry(dateKey) {
+  try {
+    await window.storage.delete(`history:${dateKey}`, false);
+    state.history = state.history.filter(h => h.dateKey !== dateKey);
+    await window.storage.set("history-index", JSON.stringify(state.history), false);
+    if (state.historyDetail && state.historyDetail.dateKey === dateKey) state.historyDetail = null;
+  } catch (e) {}
+  render();
+}
+
+document.getElementById("printBtn").addEventListener("click", () => { if (!state.reportGenerated) return; window.print(); });
+document.getElementById("themeBtn").addEventListener("click", () => { state.mode = state.mode === "light" ? "dark" : "light"; render(); });
+document.getElementById("resetBtn").addEventListener("click", resetDashboard);
+document.getElementById("tabsRow").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-tab]");
+  if (btn) { state.activeTab = btn.getAttribute("data-tab"); state.page = 1; render(); }
+});
+
+(async function init() {
+  // The dashboard/report always starts clean on load or refresh (see getInitialReportState()) -
+  // but the Master Mapping is saved config, so it's restored automatically here.
+  try {
+    const saved = await window.storage.get("mapping-latest", false);
+    if (saved && saved.value) {
+      const parsed = JSON.parse(saved.value);
+      state.mappingRows = parsed.rows;
+      state.mappingMeta = parsed.meta;
+    }
+  } catch (e) {}
+  try {
+    const idx = await window.storage.get("history-index", false);
+    if (idx && idx.value) state.history = JSON.parse(idx.value);
+  } catch (e) {}
+  render();
+})();
+</script>
