@@ -280,6 +280,85 @@ function dedupeByBookingId(rows) {
   return out;
 }
 
+function processBookingRows(rawRows) {
+  if (!rawRows.length) return { data: [], error: "The file has no rows." };
+  const headers = Object.keys(rawRows[0]);
+  const idCol = findColumn(headers, [["bookingid"], ["bookingno"], ["bookingnumber"], ["bookingnos"], ["bookingref"], ["bookingrefno"]]);
+  const locCol = findColumn(headers, [["location"]]);
+  if (!idCol) {
+    return { data: [], error: "Unable to process file: Booking Number column not found." };
+  }
+  const data = [];
+  const seen = new Set();
+  let duplicates = 0, blanks = 0;
+  for (const r of rawRows) {
+    const id = r[idCol] != null ? String(r[idCol]).trim() : "";
+    if (!id) { blanks++; continue; } // Blank Booking IDs are excluded from comparison
+    if (seen.has(id)) { duplicates++; continue; } // Duplicate Booking IDs: first occurrence kept
+    seen.add(id);
+    const loc = locCol ? (r[locCol] != null ? String(r[locCol]).trim() : "") : "";
+    data.push({ bookingId: id, location: loc });
+  }
+  const warnings = [];
+  if (blanks) warnings.push(`${blanks} row(s) with a blank Booking ID were excluded from the comparison.`);
+  if (duplicates) warnings.push(`${duplicates} duplicate Booking ID(s) were ignored (first occurrence kept).`);
+  if (!locCol) warnings.push("Location column not found. TL assignment cannot be completed.");
+  return { data, error: null, warnings };
+}
+
+// Compares Old Data vs Current Data by unique Booking ID and builds a TL-wise summary.
+// Single pass over each dataset using Sets/Maps, so it stays fast even for 50K-100K+ row files.
+// New File is ALWAYS the actual Booking ID difference — never Current Count - Old Count.
+function computePCFileStatus() {
+  const mappingDict = buildMappingDict(state.mappingRows);
+  const oldIds = new Set();
+  for (const r of state.oldData) oldIds.add(r.bookingId);
+  const currentIds = new Set();
+  for (const r of state.currentData) currentIds.add(r.bookingId);
+
+  const oldCounts = new Map();
+  for (const r of state.oldData) {
+    const tl = mappingDict.get((r.location || "").toLowerCase()) || "Not Assigned";
+    oldCounts.set(tl, (oldCounts.get(tl) || 0) + 1);
+  }
+
+  let newFileCount = 0;
+  const newCounts = new Map();
+  for (const r of state.currentData) {
+    if (oldIds.has(r.bookingId)) continue; // Rule 1: exists in both -> ignore
+    newFileCount++; // Rule 2: only in Current Data -> New File
+    const tl = mappingDict.get((r.location || "").toLowerCase()) || "Not Assigned";
+    newCounts.set(tl, (newCounts.get(tl) || 0) + 1);
+  }
+  // Rule 3 (only in Old Data) is intentionally ignored (future enhancement).
+
+  const tlNames = new Set([...oldCounts.keys(), ...newCounts.keys()]);
+  const report = Array.from(tlNames).map(tl => {
+    const newFile = newCounts.get(tl) || 0;
+    const oldFile = oldCounts.get(tl) || 0;
+    return { tl, newFile, oldFile, total: newFile + oldFile };
+  }).sort((a, b) => b.total - a.total || a.tl.localeCompare(b.tl));
+
+  const grandTotal = report.reduce((acc, r) => {
+    acc.newFile += r.newFile; acc.oldFile += r.oldFile; acc.total += r.total; return acc;
+  }, { newFile: 0, oldFile: 0, total: 0 });
+
+  // Reconciliation check: guards against any future logic drift producing an inconsistent report.
+  const reconciled =
+    grandTotal.newFile === newFileCount &&
+    grandTotal.oldFile === oldIds.size &&
+    grandTotal.total === grandTotal.oldFile + grandTotal.newFile;
+
+  return {
+    oldCount: oldIds.size,
+    currentCount: currentIds.size,
+    newFileCount,
+    report,
+    grandTotal,
+    reconciled,
+  };
+}
+
 function aggregatePayment(paymentData, tlFilter, locFilter, statusFilter, search, allTLs) {
   const map = new Map();
   for (const r of paymentData) {
@@ -428,6 +507,14 @@ const state = {
   history: [],
   mappingRows: [],
   mappingMeta: { filename: null, date: null, warnings: [], error: null, count: 0 },
+  // Old Data / Current Data (PC File Status) behave like the mapping file: they are saved
+  // immediately on upload, persist across refresh, and are only cleared via the Remove button
+  // or replaced via a new upload — so they live outside getInitialReportState() and are not
+  // touched by Reset Dashboard.
+  oldData: [],
+  oldDataMeta: { filename: null, date: null, warnings: [], error: null, count: 0 },
+  currentData: [],
+  currentDataMeta: { filename: null, date: null, warnings: [], error: null, count: 0 },
   ...getInitialReportState(),
 };
 
@@ -447,6 +534,7 @@ const TABS = [
   { id: "monthly", label: "Monthly orders", icon: "&#128230;" },
   { id: "sentback", label: "Sent back", icon: "&#9888;" },
   { id: "explorer", label: "Data explorer", icon: "&#128269;" },
+  { id: "pcfilestatus", label: "PC File Status", icon: "&#128196;" },
   { id: "history", label: "History", icon: "&#128337;" },
 ];
 
@@ -703,7 +791,8 @@ function buildFilterBar(d) {
   </div>`;
 }
 
-function buildReportTable({ title, columns, rows, exportName, exportColumns, emptyText, id, exportLabel }) {
+function buildReportTable({ title, columns, rows, exportName, exportColumns, emptyText, id, exportLabel, footerRow, exportEnabled }) {
+  const enabled = exportEnabled !== undefined ? exportEnabled : state.reportGenerated;
   if (!rows.length) {
     return `<div class="card">
       <div class="flex row between" style="padding:12px 16px; border-bottom:1px solid var(--border);">
@@ -720,7 +809,7 @@ function buildReportTable({ title, columns, rows, exportName, exportColumns, emp
   return `<div class="card" id="${id}" data-export="${esc(exportName)}">
     <div class="flex row between" style="padding:12px 16px; border-bottom:1px solid var(--border);">
       <div style="font-size:14px; font-weight:600;">${esc(title)}</div>
-      <button class="btn no-print" data-export-btn="${id}" ${state.reportGenerated ? "" : "disabled"} style="${state.reportGenerated ? "" : "opacity:.45; cursor:not-allowed;"}">&#8595; ${esc(exportLabel || "Export CSV")}</button>
+      <button class="btn no-print" data-export-btn="${id}" ${enabled ? "" : "disabled"} style="${enabled ? "" : "opacity:.45; cursor:not-allowed;"}">&#8595; ${esc(exportLabel || "Export CSV")}</button>
     </div>
     <div style="overflow-x:auto;">
       <table class="rt">
@@ -734,6 +823,11 @@ function buildReportTable({ title, columns, rows, exportName, exportColumns, emp
             return `<td class="${leftKeys.has(c.key) ? "left" : ""} ${c.key === "total" ? "total" : ""}">${v == null || v === "" ? "-" : (isNum ? fmtNum(v) : esc(v))}</td>`;
           }).join("")}</tr>`).join("")}
         </tbody>
+        ${footerRow ? `<tfoot><tr style="font-weight:700; background:var(--surfaceAlt, var(--warningBg));">${columns.map(c => {
+          const v = footerRow[c.key];
+          const isNum = typeof v === "number";
+          return `<td class="${leftKeys.has(c.key) ? "left" : ""}">${v == null || v === "" ? "" : (isNum ? fmtNum(v) : esc(v))}</td>`;
+        }).join("")}</tr></tfoot>` : ""}
       </table>
     </div>
     <div class="flex row between no-print" style="padding:8px 16px; border-top:1px solid var(--border); font-size:12px;">
@@ -784,6 +878,27 @@ function buildUploadCard(kind, title, subtitle, meta) {
         &#128260; Replace Mapping File
         <input type="file" accept=".xlsx,.xls" data-file-input="${kind}" style="display:none;" />
       </label>
+    </div>`;
+  }
+  if ((kind === "olddata" || kind === "currentdata") && meta.filename && !meta.error) {
+    return `<div class="card" style="padding:14px;">
+      <div class="flex row gap8" style="margin-bottom:2px;">
+        <div style="font-size:13px; font-weight:600;">${esc(title)}</div>
+      </div>
+      <div style="font-size:11px; margin-bottom:10px;" class="muted">${esc(subtitle)}</div>
+      <div style="font-size:12px;">
+        <div style="color:var(--successText);">&#9989; Saved &middot; ${fmtNum(meta.count)} unique Booking ID(s)</div>
+        <div class="muted" style="word-break:break-word;">${esc(meta.filename)}</div>
+        ${meta.date ? `<div class="mut2" style="font-size:11px;">Saved ${esc(meta.date)}</div>` : ""}
+        ${(meta.warnings || []).map(w => `<div class="warn-box" style="color:var(--warningText); background:var(--warningBg);">&#9888; ${esc(w)}</div>`).join("")}
+      </div>
+      <div class="flex row gap8" style="margin-top:10px; flex-wrap:wrap;">
+        <label class="btn" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+          &#128260; Replace File
+          <input type="file" accept=".xlsx,.xls" data-file-input="${kind}" style="display:none;" />
+        </label>
+        <button class="btn" data-remove="${kind}" style="color:var(--dangerText);">&#128465; Remove</button>
+      </div>
     </div>`;
   }
   return `<div class="card" style="padding:14px;">
@@ -954,6 +1069,53 @@ function renderExplorer(d) {
   });
 }
 
+function renderPCFileStatus() {
+  const pc = computePCFileStatus();
+  const kpiHtml = [
+    buildMetricCard("Old Data", pc.oldCount),
+    buildMetricCard("Current Data", pc.currentCount),
+    buildMetricCard("New File", pc.newFileCount),
+  ].join("");
+
+  const hasData = state.oldData.length > 0 || state.currentData.length > 0;
+  const pcCols = [{ key: "tl", label: "TL Name" }, { key: "newFile", label: "New File" }, { key: "oldFile", label: "Old File" }, { key: "total", label: "Total" }];
+
+  let tableHtml;
+  if (hasData && !pc.reconciled) {
+    // Reconciliation check failed — show a warning instead of a potentially incorrect report.
+    tableHtml = `<div class="card">
+      <div class="flex row between" style="padding:12px 16px; border-bottom:1px solid var(--border);">
+        <div style="font-size:14px; font-weight:600;">PC File Status Report (TL-wise)</div>
+      </div>
+      <div class="warn-box" style="margin:16px; padding:12px; color:var(--dangerText); background:var(--dangerBg);">
+        &#9888; The PC File Status totals don't reconcile (Old File / New File / Total mismatch). The report has been hidden to avoid showing incorrect numbers — please re-upload Old Data and Current Data and try again.
+      </div>
+    </div>`;
+  } else {
+    tableHtml = buildReportTable({
+      id: "pcfilestatusTable", title: "PC File Status Report (TL-wise)",
+      columns: pcCols,
+      rows: pc.report, exportName: "PC_File_Status_Report.xlsx",
+      exportLabel: "Download Excel",
+      exportEnabled: pc.report.length > 0,
+      footerRow: pc.report.length ? { tl: "Grand Total", ...pc.grandTotal } : null,
+      emptyText: "Upload both Old Data and Current Data above to generate the PC File Status summary.",
+    });
+  }
+
+  return `
+  <div class="kpi-grid">${kpiHtml}</div>
+  <div class="flex row between no-print" style="margin-bottom:8px;">
+    <div style="font-size:14px; font-weight:600;">Upload Old Data &amp; Current Data</div>
+  </div>
+  <div class="upload-grid no-print">
+    ${buildUploadCard("olddata", "Old Data", "Previous booking file", state.oldDataMeta)}
+    ${buildUploadCard("currentdata", "Current Data", "Latest booking file", state.currentDataMeta)}
+  </div>
+  <div style="font-size:11px; margin-bottom:12px;" class="mut2">Uses the TL Assigned File already uploaded on the Dashboard tab for automatic TL assignment (matched by Location). Old Data and Current Data are saved automatically and remain available after a refresh — use Replace or Remove on each card to change them.</div>
+  ${tableHtml}`;
+}
+
 function renderHistory() {
   const listHtml = state.history.length === 0
     ? `<div style="font-size:13px;" class="muted">No reports saved yet. Go to the Dashboard tab and click "Save today's report to history".</div>`
@@ -1010,12 +1172,13 @@ function render() {
 
   const d = derive();
   let body = "";
-  if (state.activeTab !== "history") body += buildFilterBar(d);
+  if (state.activeTab !== "history" && state.activeTab !== "pcfilestatus") body += buildFilterBar(d);
   if (state.activeTab === "dashboard") body += renderDashboard(d);
   else if (state.activeTab === "payment") body += renderPayment(d);
   else if (state.activeTab === "monthly") body += renderMonthly(d);
   else if (state.activeTab === "sentback") body += renderSentBack(d);
   else if (state.activeTab === "explorer") body += renderExplorer(d);
+  else if (state.activeTab === "pcfilestatus") body += renderPCFileStatus();
   else if (state.activeTab === "history") body += renderHistory();
 
   document.getElementById("content").innerHTML = body;
@@ -1082,7 +1245,7 @@ function attachContentListeners() {
 
   document.querySelectorAll("[data-export-btn]").forEach(el => {
     el.addEventListener("click", () => {
-      if (el.hasAttribute("disabled") || !state.reportGenerated) return;
+      if (el.hasAttribute("disabled")) return;
       const containerId = el.getAttribute("data-export-btn");
       const container = document.getElementById(containerId);
       const exportName = container.getAttribute("data-export");
@@ -1106,6 +1269,12 @@ function attachContentListeners() {
         exportSentBackMonthWise(exportName, cols, monthGroups);
         return;
       }
+      if (containerId === "pcfilestatusTable") {
+        const pc = computePCFileStatus();
+        const pcCols = [{ key: "tl", label: "TL Name" }, { key: "newFile", label: "New File" }, { key: "oldFile", label: "Old File" }, { key: "total", label: "Total" }];
+        exportXLSX(exportName, pcCols, sortRows(pc.report, state.sort.key, state.sort.dir), pc.grandTotal, null, "PC File Status");
+        return;
+      }
       let rows, columns;
       if (containerId === "monthlyTable") { rows = d.monthlyReport; columns = [{ key: "tl", label: "TL Name" }, ...d.availableMonths.map(m => ({ key: m, label: m })), { key: "total", label: "Total" }]; }
       else { rows = d.filteredExplorer; columns = [{ key: "tl", label: "TL Name" }, { key: "loc", label: "Location" }, { key: "bn", label: "Booking No" }, { key: "date", label: "Delivery Date" }, { key: "month", label: "Month" }, { key: "sbo", label: "Sent Back" }, { key: "status", label: "Deal Status" }]; }
@@ -1113,7 +1282,7 @@ function attachContentListeners() {
     });
   });
 
-  ["mapping", "payment", "rowdata"].forEach(kind => {
+  ["mapping", "payment", "rowdata", "olddata", "currentdata"].forEach(kind => {
     const drop = document.querySelector(`[data-drop="${kind}"]`);
     const input = document.querySelector(`[data-file-input="${kind}"]`);
     if (drop) {
@@ -1122,6 +1291,20 @@ function attachContentListeners() {
       drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); if (e.dataTransfer.files[0]) handleUpload(kind, e.dataTransfer.files[0]); });
     }
     if (input) input.addEventListener("change", e => { if (e.target.files[0]) handleUpload(kind, e.target.files[0]); });
+  });
+
+  document.querySelectorAll("[data-remove]").forEach(el => {
+    el.addEventListener("click", async () => {
+      const kind = el.getAttribute("data-remove");
+      const label = kind === "olddata" ? "Old Data" : "Current Data";
+      const ok = window.confirm(`Remove ${label}? This clears it from PC File Status and cannot be undone. The TL Mapping and rest of the dashboard are not affected.`);
+      if (!ok) return;
+      const blankMeta = { filename: null, date: null, warnings: [], error: null, count: 0 };
+      if (kind === "olddata") { state.oldData = []; state.oldDataMeta = blankMeta; }
+      else { state.currentData = []; state.currentDataMeta = blankMeta; }
+      try { await window.storage.delete(`${kind}-latest`, false); } catch (e) {}
+      render();
+    });
   });
 
   const saveBtn = document.getElementById("saveHistoryBtn");
@@ -1138,7 +1321,7 @@ function attachContentListeners() {
 async function handleUpload(kind, file) {
   const uploadDate = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const sig = `${file.name}|${file.size}|${file.lastModified}`;
-  const priorMeta = kind === "mapping" ? state.mappingMeta : kind === "payment" ? state.paymentMeta : state.rowDataMeta;
+  const priorMeta = kind === "mapping" ? state.mappingMeta : kind === "payment" ? state.paymentMeta : kind === "rowdata" ? state.rowDataMeta : kind === "olddata" ? state.oldDataMeta : state.currentDataMeta;
   if (priorMeta && priorMeta.signature === sig) {
     const proceed = window.confirm("This file appears to have already been processed. Do you want to continue?");
     if (!proceed) return;
@@ -1149,12 +1332,15 @@ async function handleUpload(kind, file) {
     let res;
     if (kind === "mapping") res = processMappingRows(rows);
     else if (kind === "payment") res = processPaymentRows(rows, mappingDict);
-    else res = processRowDataRows(rows, mappingDict);
+    else if (kind === "rowdata") res = processRowDataRows(rows, mappingDict);
+    else res = processBookingRows(rows); // olddata / currentdata
 
     const meta = { filename: file.name, date: uploadDate, warnings: res.warnings || [], error: res.error || null, count: res.data.length, signature: sig };
     if (kind === "mapping") state.mappingMeta = meta;
     else if (kind === "payment") state.paymentMeta = meta;
-    else state.rowDataMeta = meta;
+    else if (kind === "rowdata") state.rowDataMeta = meta;
+    else if (kind === "olddata") state.oldDataMeta = meta;
+    else state.currentDataMeta = meta;
 
     if (res.error) {
       state.staged[kind] = null;
@@ -1166,9 +1352,14 @@ async function handleUpload(kind, file) {
       // Master Mapping is saved once and reused automatically — commit immediately, no staging.
       state.mappingRows = res.data;
       try { await window.storage.set("mapping-latest", JSON.stringify({ rows: res.data, meta }), false); } catch (e) {}
+    } else if (kind === "olddata" || kind === "currentdata") {
+      // Old Data / Current Data (PC File Status) also commit immediately and persist across
+      // refresh, just like the mapping file — cleared only via the Remove button.
+      if (kind === "olddata") state.oldData = res.data; else state.currentData = res.data;
+      try { await window.storage.set(`${kind}-latest`, JSON.stringify({ rows: res.data, meta }), false); } catch (e) {}
     } else {
-      // Payment / Row Data drive the report — hold new data until the user clicks Generate Report,
-      // so the currently visible report and downloads are unaffected until then.
+      // Payment / Row Data drive the report — hold new data until the user
+      // clicks Generate Report, so the currently visible report and downloads are unaffected until then.
       state.staged[kind] = { data: res.data, meta };
     }
   } catch (e) {
@@ -1176,7 +1367,9 @@ async function handleUpload(kind, file) {
     const meta = { filename: file.name, date: uploadDate, warnings: [], error: msg, count: 0, signature: sig };
     if (kind === "mapping") state.mappingMeta = meta;
     else if (kind === "payment") state.paymentMeta = meta;
-    else state.rowDataMeta = meta;
+    else if (kind === "rowdata") state.rowDataMeta = meta;
+    else if (kind === "olddata") state.oldDataMeta = meta;
+    else state.currentDataMeta = meta;
     state.staged[kind] = null;
   }
   render();
@@ -1230,13 +1423,30 @@ document.getElementById("tabsRow").addEventListener("click", (e) => {
 
 (async function init() {
   // The dashboard/report always starts clean on load or refresh (see getInitialReportState()) -
-  // but the Master Mapping is saved config, so it's restored automatically here.
+  // but the Master Mapping, Old Data, and Current Data are saved config, so they're restored
+  // automatically here.
   try {
     const saved = await window.storage.get("mapping-latest", false);
     if (saved && saved.value) {
       const parsed = JSON.parse(saved.value);
       state.mappingRows = parsed.rows;
       state.mappingMeta = parsed.meta;
+    }
+  } catch (e) {}
+  try {
+    const savedOld = await window.storage.get("olddata-latest", false);
+    if (savedOld && savedOld.value) {
+      const parsed = JSON.parse(savedOld.value);
+      state.oldData = parsed.rows;
+      state.oldDataMeta = parsed.meta;
+    }
+  } catch (e) {}
+  try {
+    const savedCurrent = await window.storage.get("currentdata-latest", false);
+    if (savedCurrent && savedCurrent.value) {
+      const parsed = JSON.parse(savedCurrent.value);
+      state.currentData = parsed.rows;
+      state.currentDataMeta = parsed.meta;
     }
   } catch (e) {}
   try {
